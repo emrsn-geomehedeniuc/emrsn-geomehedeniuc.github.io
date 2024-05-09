@@ -128,7 +128,7 @@ function getCorrectLevel(errorCorrection) {
     "Q": QRCode.CorrectLevel.Q,
     "H": QRCode.CorrectLevel.H
     };
-    return levels[errorCorrection] || QRCode.CorrectLevel.L; // Default to 'L' if not matched
+    return levels[errorCorrection] || QRCode.CorrectLevel.M; // Default to 'M' if not matched
 }
 
 function createFilenameFromUrl(url) {
