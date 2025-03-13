@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <!-- Add this CSP meta tag to upgrade insecure requests -->
   <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
-  <title>QR Code Generator</title>
+  <title>Protools QR Labels</title>
   <style>
     * {
       box-sizing: border-box;
@@ -116,7 +116,17 @@
       background-color: #b71c1c;
     }
 
-    /* Download buttons */
+    /* Download section and buttons */
+    .download-section {
+      margin-bottom: 20px;
+    }
+    
+    .download-section label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: 500;
+    }
+
     .download-buttons {
       display: flex;
       justify-content: space-between;
@@ -152,11 +162,11 @@
 <body>
 
   <div class="container">
-    <h1>QR Code Generator</h1>
+    <h1>Protools QR Labels</h1>
     
     <!-- Link Input -->
     <div class="input-group">
-      <label for="qr-link">Insert link</label>
+      <label for="qr-link">Link</label>
       <input type="text" id="qr-link" placeholder="Insert link" />
     </div>
     
@@ -182,11 +192,14 @@
     <!-- Generate Button -->
     <button class="generate-btn">GENERATE QR CODE</button>
     
-    <!-- Download Buttons -->
-    <div class="download-buttons">
-      <button>SVG</button>
-      <button>PNG</button>
-      <button>EPS</button>
+    <!-- Download Section -->
+    <div class="download-section">
+      <label>Download</label>
+      <div class="download-buttons">
+        <button>SVG</button>
+        <button>PNG</button>
+        <button>EPS</button>
+      </div>
     </div>
   </div>
 
@@ -260,6 +273,7 @@
         
         // Call the endpoint
         fetch('http://USMTNCSSZZZAP01:3000/generateQR', {
+        // fetch('http://localhost:3000/generateQR', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'

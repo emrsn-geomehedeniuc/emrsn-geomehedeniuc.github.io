@@ -5,6 +5,8 @@ from fastapi.staticfiles import StaticFiles
 import qrcode
 from PIL import Image
 import os
+import re
+from urllib.parse import urlparse
 
 app = FastAPI()
 
@@ -76,6 +78,48 @@ async def generate_qr(request: Request):
     if not url:
         raise HTTPException(status_code=400, detail="Missing 'url' in request body.")
     
+    # Parse URL to extract brand and qr_code
+    # Default values as fallback
+    brand = "generic"
+    qr_code = "code"
+    filename_prefix = "qr_code"  # Default fallback
+    
+    try:
+        # Parse the URL and try to extract brand and QR code
+        parsed_url = urlparse(url)
+        
+        # Pattern 1: https://www.ridgid.com/qr/fxp490
+        qr_pattern = re.compile(r"www\.([^.]+)\.com/qr/([^/]+)")
+        match = qr_pattern.search(parsed_url.netloc + parsed_url.path)
+        
+        if match:
+            brand = match.group(1).lower()
+            qr_code = match.group(2).lower()
+            filename_prefix = f"{brand}-qr-{qr_code}"
+        else:
+            # Alternative pattern matching if needed
+            # For example: trying to match other URL formats
+            
+            # Finally, if no patterns match, use a sanitized version of the hostname as the brand
+            hostname = parsed_url.netloc
+            if hostname.startswith('www.'):
+                hostname = hostname[4:]
+            if '.' in hostname:
+                brand = hostname.split('.')[0]
+            
+            # Use part of path as qr_code if available
+            path_parts = [p for p in parsed_url.path.split('/') if p]
+            if path_parts:
+                qr_code = path_parts[-1]
+                
+            # If we have both brand and qr_code, use the new format
+            if brand != "generic" or qr_code != "code":
+                filename_prefix = f"{brand}-qr-{qr_code}"
+    
+    except Exception as e:
+        # Log the error but continue with default filename
+        print(f"Error parsing URL: {str(e)}")
+    
     # Map error correction level to qrcode constants
     error_correction_mapping = {
         "L": qrcode.constants.ERROR_CORRECT_L,
@@ -98,8 +142,6 @@ async def generate_qr(request: Request):
     )
     qr.add_data(url)
     qr.make(fit=True)
-    
-    filename_prefix = "qr_code"
     
     # 1. Generate 500x500 px SVG:
     #   - QR code drawn in a 360x360 area with 70px padding on all sides
