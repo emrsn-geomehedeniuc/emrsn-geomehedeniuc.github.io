@@ -202,7 +202,11 @@
       // Store the initial message for preview area
       const initialPreviewContent = qrPreviewElement.innerHTML;
       let generatedQR = false;
-      let qrCodes = []; // Array to hold base64 QR code images
+      let qrCodeUrls = {
+        svg: '',
+        png: '',
+        eps: ''
+      }; // Object to hold QR code file URLs
       
       // Function to disable download buttons
       function disableDownloadButtons() {
@@ -231,10 +235,14 @@
       linkInput.addEventListener('input', function() {
         disableDownloadButtons();
         resetPreview();
-        qrCodes = [];
+        qrCodeUrls = {
+          svg: '',
+          png: '',
+          eps: ''
+        };
       });
       
-      // Generate QR codes using external endpoint
+      // Generate QR codes using the specified endpoint
       generateBtn.addEventListener('click', function() {
         const link = linkInput.value.trim();
         if (!link) {
@@ -245,38 +253,49 @@
         // Clear previous preview content
         qrPreviewElement.innerHTML = '';
         
-        // Construct the prompt including error correction level
-        const promptText = `Generate 3 QR codes for the link: ${link} with error correction level: ${errorCorrectionLevel.value}. Return the codes as base64 encoded PNG images.`;
+        // Show loading indication
+        qrPreviewElement.innerHTML = '<p>Generating QR code...</p>';
         
-        // Call the external endpoint
-        fetch('https://your-openid-endpoint.example.com/generateQR', {
+        // Call the endpoint
+        fetch('http://USMTNCSSZZZAP01:3000/generateQR', {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${API_KEY}`
+            'Content-Type': 'application/json'
           },
-          body: JSON.stringify({ prompt: promptText })
+          body: JSON.stringify({ 
+            url: link,
+            errorCorrectionLevel: errorCorrectionLevel.value
+          })
         })
-        .then(response => response.json())
-        .then(data => {
-          // Expect data to be an array of base64 encoded PNG images
-          if (!Array.isArray(data) || data.length === 0) {
-            throw new Error('No QR codes returned');
+        .then(response => {
+          if (!response.ok) {
+            throw new Error('Network response was not ok');
           }
-          qrCodes = data; // Save the QR code images
-          data.forEach((qrImage, index) => {
-            const img = document.createElement('img');
-            img.src = `data:image/png;base64,${qrImage}`;
-            img.alt = `QR Code ${index + 1}`;
-            img.style.marginBottom = '10px';
-            qrPreviewElement.appendChild(img);
-          });
+          return response.json();
+        })
+        .then(data => {
+          // Store the URLs for download buttons
+          qrCodeUrls.svg = data.files.svg;
+          qrCodeUrls.png = data.files.png;
+          qrCodeUrls.eps = data.files.eps;
+          
+          // Display the QR code (using PNG format for preview)
+          const img = document.createElement('img');
+          img.src = qrCodeUrls.png;
+          img.alt = 'Generated QR Code';
+          img.style.maxWidth = '100%';
+          img.style.height = 'auto';
+          
+          // Clear loading indication and append the image
+          qrPreviewElement.innerHTML = '';
+          qrPreviewElement.appendChild(img);
+          
           generatedQR = true;
           enableDownloadButtons();
         })
         .catch(error => {
-          console.error(error);
-          alert('Error generating QR codes');
+          console.error('Error:', error);
+          qrPreviewElement.innerHTML = '<p>Error generating QR code. Please try again.</p>';
         });
       });
       
@@ -289,19 +308,18 @@
           }
           
           const format = button.textContent.toLowerCase();
+          const url = qrCodeUrls[format];
           
-          if (format === 'png') {
-            // Download each QR code image in PNG format
-            qrCodes.forEach((qrImage, index) => {
-              const linkElem = document.createElement('a');
-              linkElem.download = `qrcode_${index + 1}.png`;
-              linkElem.href = `data:image/png;base64,${qrImage}`;
-              document.body.appendChild(linkElem);
-              linkElem.click();
-              document.body.removeChild(linkElem);
-            });
-          } else if (format === 'svg' || format === 'eps') {
-            alert(`${format.toUpperCase()} download is not supported for API generated QR codes`);
+          if (url) {
+            // Create temporary anchor element for download
+            const downloadLink = document.createElement('a');
+            downloadLink.href = url;
+            downloadLink.download = `qr_code.${format}`;
+            document.body.appendChild(downloadLink);
+            downloadLink.click();
+            document.body.removeChild(downloadLink);
+          } else {
+            alert(`Unable to download ${format.toUpperCase()} file. Please try again.`);
           }
         });
       });
