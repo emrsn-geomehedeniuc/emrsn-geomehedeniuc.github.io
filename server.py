@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse
-from fastapi.middleware.cors import CORSMiddleware  # Import CORS middleware
+from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 import qrcode
 from PIL import Image
 import os
@@ -20,9 +21,51 @@ app.add_middleware(
 QR_CODE_DIR = "generated_qr_codes"
 os.makedirs(QR_CODE_DIR, exist_ok=True)
 
-@app.get("/")
-def home():
-    return {"message": "QR Code Generator API is running."}
+# Define the directory where your index.html is located
+# Assuming it's in the same directory as the server.py file
+STATIC_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# Mount static files directory (for CSS, JS, etc. if needed)
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+@app.get("/", response_class=HTMLResponse)
+def home_redirect():
+    """Redirect or inform about the QR code generator path"""
+    return HTMLResponse(content="""
+        <html>
+            <head>
+                <title>QR Code Generator</title>
+                <meta http-equiv="refresh" content="0;url=/QrCodeGenerator" />
+            </head>
+            <body>
+                <p>Redirecting to <a href="/QrCodeGenerator">QR Code Generator</a>...</p>
+            </body>
+        </html>
+    """)
+
+# Add the new endpoint at /QrCodeGenerator
+@app.get("/QrCodeGenerator", response_class=HTMLResponse)
+def serve_qr_generator():
+    """Serve the index.html file at the /QrCodeGenerator path"""
+    index_path = os.path.join(STATIC_DIR, "index.html")
+    
+    if not os.path.exists(index_path):
+        raise HTTPException(status_code=404, detail="Index file not found")
+    
+    with open(index_path, "r") as file:
+        content = file.read()
+    return HTMLResponse(content=content)
+
+# Alternative approach using FileResponse
+@app.get("/app", response_class=FileResponse)
+def serve_index_as_file():
+    """Alternative endpoint to serve the index.html file"""
+    index_path = os.path.join(STATIC_DIR, "index.html")
+    
+    if not os.path.exists(index_path):
+        raise HTTPException(status_code=404, detail="Index file not found")
+    
+    return FileResponse(index_path)
 
 @app.post("/generateQR")
 async def generate_qr(request: Request):
