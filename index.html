@@ -1,158 +1,311 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PDP QR-Code Generator</title>
-    <style>
-      body { font-family: Arial, sans-serif; display: flex; flex-direction: column; align-items: center; padding: 20px; }
+  <meta charset="UTF-8" />
+  <title>AI-QR Code Generator</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f9f9f9;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      min-height: 100vh;
+      padding: 20px;
+    }
 
-      .form-group { margin-bottom: 20px;}
+    .container {
+      background-color: #ffffff;
+      width: 400px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      padding: 20px;
+    }
 
-      label { display: block; margin-bottom: 10px; font-weight: bold; }
+    .container h1 {
+      text-align: center;
+      margin-bottom: 20px;
+      font-size: 1.5rem;
+    }
 
-      select, input[type="text"] { padding: 10px; width: 300px; border: 1px solid #ddd; border-radius: 5px; }
+    /* Input field section */
+    .input-group {
+      margin-bottom: 20px;
+    }
 
-      button { padding: 10px 20px; background-color: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }
+    .input-group label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: 500;
+    }
 
-      button:hover { background-color: #0056b3; }
+    .input-group input {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 1rem;
+    }
 
-      a.button-style {
-          padding: 10px 20px;
-          background-color: #007bff;
-          color: white;
-          border: none;
-          border-radius: 5px;
-          cursor: pointer;
-          text-align: center;
-          text-decoration: none;
-          display: inline-block;
-          margin-bottom: 50px;
-      }
+    /* Preview section */
+    .preview-section {
+      margin-bottom: 20px;
+    }
 
-      a.button-style:hover {
-          background-color: #0056b3;
-      }
+    .preview-section label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: 500;
+    }
 
-      #bottomRightLabel {
-            background-color: #626262; /* Light blue background */
-            color: white; /* White text color */
-            padding: 10px;
-            margin-top: 100px;
-            border-radius: 5px;
-        }
+    .qr-preview {
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      border: 2px dashed #ddd;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      border-radius: 4px;
+      background-color: #fafafa;
+      margin-bottom: 10px;
+      flex-direction: column;
+    }
 
-    </style>
-    <script type="text/javascript" src="jquery.min.js"></script>
-    <script type="text/javascript" src="qrcode.js"></script>
+    /* Error correction dropdown */
+    .error-correction {
+      margin-bottom: 20px;
+    }
+
+    .error-correction label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: 500;
+    }
+
+    .error-correction select {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 1rem;
+    }
+
+    /* Generate button */
+    .generate-btn {
+      width: 100%;
+      background-color: #d32f2f;
+      color: #ffffff;
+      padding: 12px;
+      border: none;
+      border-radius: 4px;
+      font-size: 1rem;
+      cursor: pointer;
+      font-weight: 600;
+      margin-bottom: 20px;
+    }
+
+    .generate-btn:hover {
+      background-color: #b71c1c;
+    }
+
+    /* Download buttons */
+    .download-buttons {
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .download-buttons button {
+      flex: 1;
+      background-color: #d32f2f;
+      color: #ffffff;
+      padding: 10px;
+      border: none;
+      border-radius: 4px;
+      margin-right: 10px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .download-buttons button:last-child {
+      margin-right: 0;
+    }
+
+    .download-buttons button:hover {
+      background-color: #b71c1c;
+    }
+
+    /* Disabled buttons */
+    .download-buttons button.disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+  </style>
 </head>
 <body>
 
-<h1 style="margin-bottom: 50px;">PDP QR-Code Generator</h1>
-<!--Used to display qr code in svg format-->
-<div id="qrCodeDiv" width="300" height="300" style="margin-bottom: 50px;">
-    <img id="qrImage" src="qr_code_template.png" alt="QR Code Image" width="300" height="300" style="display:block;">
-</div>
+  <div class="container">
+    <h1>AI-QR Code Generator</h1>
+    
+    <!-- Link Input -->
+    <div class="input-group">
+      <label for="qr-link">Insert link</label>
+      <input type="text" id="qr-link" placeholder="Insert link" />
+    </div>
+    
+    <!-- Preview Section -->
+    <div class="preview-section">
+      <label>Preview</label>
+      <div class="qr-preview">
+        <span>QR Code Preview</span>
+      </div>
+    </div>
 
-<a class="button-style" href="#" id="downloadQrCodeLink" download="qr_code.svg">Download</a>
+    <!-- Error Correction -->
+    <div class="error-correction">
+      <label for="error-correction-level">Error correction</label>
+      <select id="error-correction-level">
+        <option value="L">Level L</option>
+        <option value="M">Level M</option>
+        <option value="Q">Level Q</option>
+        <option value="H" selected>Level H</option>
+      </select>
+    </div>
 
-<div class="form-group">
-    <label for="urlInput">Enter URL:</label>
-    <input type="text" id="urlInput" placeholder="https://yourUrl.com">
-</div>
+    <!-- Generate Button -->
+    <button class="generate-btn">GENERATE QR CODE</button>
+    
+    <!-- Download Buttons -->
+    <div class="download-buttons">
+      <button>SVG</button>
+      <button>PNG</button>
+      <button>EPS</button>
+    </div>
+  </div>
 
-<div class="form-group">
-    <label for="errorCorrection">Error Correction:</label>
-    <select id="errorCorrection">
-        <option value="L">L</option>
-        <option value="M">M</option>
-        <option value="Q">Q</option>
-        <option value="H">H</option>
-    </select>
-</div>
-<button id="generateBtn">Generate QR-Code</button>
-
-<div id="bottomRightLabel">Powered by <a href="https://davidshimjs.github.io/qrcodejs/" target="_blank" style="color: inherit; text-decoration: none;">QRCode.js</a></div>
-
-<script>
-
- let fileName = "qr_code.svg"
-
-  document.getElementById('downloadQrCodeLink').addEventListener('click', function() {
-    const url = document.getElementById('urlInput').value;
-    var svg = document.querySelector('#qrCodeDiv svg');
-    if(document.getElementById('qrCodeDiv').firstElementChild.tagName.toLowerCase() === 'svg'){
-        var serializer = new XMLSerializer();
-        var svgStr = serializer.serializeToString(svg);
-        this.download = fileName;
-        this.href = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgStr);
-    }else{
-        event.preventDefault();
-        alert('Generate a QR-Code first!');
-    }
-  });
-
-  document.getElementById('generateBtn').addEventListener('click', function() {
-    // Here you would integrate a QR code generation library or API call to generate the QR code
-    // For demonstration, let's just change the src attribute of the img tag to simulate QR code generation
-    const url = document.getElementById('urlInput').value;
-    const errorCorrection = document.getElementById('errorCorrection').value;
-
-    // Placeholder for actual QR code generation
-    console.log(`Generating QR code for URL: ${url} with Error Correction: ${errorCorrection}`);
-
-    if (url.trim().length != 0) {
-        // Example QR Code Image (Replace with actual QR code generation logic)
-        var qrCodePlaceholder = document.getElementById("qrCodeDiv")
-        while (qrCodePlaceholder.firstChild) {
-            qrCodePlaceholder.removeChild(qrCodePlaceholder.firstChild);
-        }
-
-        var qrcode = new QRCode(qrCodePlaceholder, {
-            text: url,
-            width: 200,
-            height: 200,
-            colorDark : "#000000",
-            colorLight : "#ffffff",
-            correctLevel : getCorrectLevel(errorCorrection),
-            useSVG: true
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      // Place your API key here
+      const API_KEY = 'YOUR_API_KEY_HERE';
+      
+      const linkInput = document.getElementById('qr-link');
+      const qrPreviewElement = document.querySelector('.qr-preview');
+      const generateBtn = document.querySelector('.generate-btn');
+      const errorCorrectionLevel = document.getElementById('error-correction-level');
+      const downloadButtons = document.querySelectorAll('.download-buttons button');
+      
+      // Store the initial message for preview area
+      const initialPreviewContent = qrPreviewElement.innerHTML;
+      let generatedQR = false;
+      let qrCodes = []; // Array to hold base64 QR code images
+      
+      // Function to disable download buttons
+      function disableDownloadButtons() {
+        generatedQR = false;
+        downloadButtons.forEach(button => {
+          button.classList.add('disabled');
         });
-
-        fileName = createFilenameFromUrl(url);
-	}
-  });
-function getCorrectLevel(errorCorrection) {
-    const levels = {
-    "L": QRCode.CorrectLevel.L,
-    "M": QRCode.CorrectLevel.M,
-    "Q": QRCode.CorrectLevel.Q,
-    "H": QRCode.CorrectLevel.H
-    };
-    return levels[errorCorrection] || QRCode.CorrectLevel.M; // Default to 'M' if not matched
-}
-
-function createFilenameFromUrl(url) {
-  // Remove the protocol (http, https) and replace it with empty space
-  let filename = url.replace(/^https?:\/\//, '');
-
-  // Replace forward slashes (/) with hyphens (-) to avoid directory structure
-  filename = filename.replace(/\//g, '-');
-
-  // Replace characters that are not allowed in filenames
-  filename = filename.replace(/[?<>\\:*|"]/g, '');
-
-  // Optional: Replace periods with dashes to avoid file extensions being interpreted
-  filename = filename.replace(/\./g, '-');
-
-  // Replace consecutive hyphens with a single one
-  filename = filename.replace(/-+/g, '-');
-
-  // Truncate to a specific length if necessary, e.g., 255 characters
-  //filename = filename.substring(0, 255);
-
-  return filename;
-}
-
-</script>
+      }
+      
+      // Function to enable download buttons
+      function enableDownloadButtons() {
+        downloadButtons.forEach(button => {
+          button.classList.remove('disabled');
+        });
+      }
+      
+      // Function to reset QR preview to initial state
+      function resetPreview() {
+        qrPreviewElement.innerHTML = initialPreviewContent;
+      }
+      
+      // Disable download buttons initially
+      disableDownloadButtons();
+      
+      // Listen for changes in the URL input
+      linkInput.addEventListener('input', function() {
+        disableDownloadButtons();
+        resetPreview();
+        qrCodes = [];
+      });
+      
+      // Generate QR codes using external endpoint
+      generateBtn.addEventListener('click', function() {
+        const link = linkInput.value.trim();
+        if (!link) {
+          alert('Please enter a valid link');
+          return;
+        }
+        
+        // Clear previous preview content
+        qrPreviewElement.innerHTML = '';
+        
+        // Construct the prompt including error correction level
+        const promptText = `Generate 3 QR codes for the link: ${link} with error correction level: ${errorCorrectionLevel.value}. Return the codes as base64 encoded PNG images.`;
+        
+        // Call the external endpoint
+        fetch('https://your-openid-endpoint.example.com/generateQR', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${API_KEY}`
+          },
+          body: JSON.stringify({ prompt: promptText })
+        })
+        .then(response => response.json())
+        .then(data => {
+          // Expect data to be an array of base64 encoded PNG images
+          if (!Array.isArray(data) || data.length === 0) {
+            throw new Error('No QR codes returned');
+          }
+          qrCodes = data; // Save the QR code images
+          data.forEach((qrImage, index) => {
+            const img = document.createElement('img');
+            img.src = `data:image/png;base64,${qrImage}`;
+            img.alt = `QR Code ${index + 1}`;
+            img.style.marginBottom = '10px';
+            qrPreviewElement.appendChild(img);
+          });
+          generatedQR = true;
+          enableDownloadButtons();
+        })
+        .catch(error => {
+          console.error(error);
+          alert('Error generating QR codes');
+        });
+      });
+      
+      // Handle download button clicks
+      downloadButtons.forEach(button => {
+        button.addEventListener('click', function() {
+          if (!generatedQR || button.classList.contains('disabled')) {
+            alert('Please generate QR codes first');
+            return;
+          }
+          
+          const format = button.textContent.toLowerCase();
+          
+          if (format === 'png') {
+            // Download each QR code image in PNG format
+            qrCodes.forEach((qrImage, index) => {
+              const linkElem = document.createElement('a');
+              linkElem.download = `qrcode_${index + 1}.png`;
+              linkElem.href = `data:image/png;base64,${qrImage}`;
+              document.body.appendChild(linkElem);
+              linkElem.click();
+              document.body.removeChild(linkElem);
+            });
+          } else if (format === 'svg' || format === 'eps') {
+            alert(`${format.toUpperCase()} download is not supported for API generated QR codes`);
+          }
+        });
+      });
+    });
+  </script>
 </body>
 </html>
