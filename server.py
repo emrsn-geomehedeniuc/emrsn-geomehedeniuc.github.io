@@ -1,10 +1,20 @@
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse
+from fastapi.middleware.cors import CORSMiddleware  # Import CORS middleware
 import qrcode
 from PIL import Image
 import os
 
 app = FastAPI()
+
+# ✅ Allow CORS for your frontend (modify if needed)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # 🔴 Allow requests from any origin (Use frontend URL in production)
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "OPTIONS"],  # Allowed request methods
+    allow_headers=["*"],  # Allowed request headers
+)
 
 # Create a directory to store generated QR codes
 QR_CODE_DIR = "generated_qr_codes"
@@ -17,18 +27,33 @@ def home():
 @app.post("/generateQR")
 async def generate_qr(request: Request):
     data = await request.json()
-    prompt = data.get("prompt")
+    url = data.get("url")
+    error_correction_level = data.get("errorCorrectionLevel", "H")  # Default to H if not provided
     
-    if not prompt:
-        raise HTTPException(status_code=400, detail="Missing 'prompt' in request body.")
+    if not url:
+        raise HTTPException(status_code=400, detail="Missing 'url' in request body.")
     
-    # Generate the QR Code with Error Correction Level H
+    # Map error correction level to qrcode constants
+    error_correction_mapping = {
+        "L": qrcode.constants.ERROR_CORRECT_L,
+        "M": qrcode.constants.ERROR_CORRECT_M,
+        "Q": qrcode.constants.ERROR_CORRECT_Q,
+        "H": qrcode.constants.ERROR_CORRECT_H
+    }
+    
+    # Use the provided error correction level or default to H
+    error_correction = error_correction_mapping.get(
+        error_correction_level, 
+        qrcode.constants.ERROR_CORRECT_H
+    )
+    
+    # Generate the QR Code with the specified error correction level
     qr = qrcode.QRCode(
-        error_correction=qrcode.constants.ERROR_CORRECT_H,
+        error_correction=error_correction,
         box_size=10,
         border=0
     )
-    qr.add_data(prompt)
+    qr.add_data(url)
     qr.make(fit=True)
     
     filename_prefix = "qr_code"

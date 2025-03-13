@@ -171,9 +171,9 @@
       <label for="error-correction-level">Error correction</label>
       <select id="error-correction-level">
         <option value="L">Level L</option>
-        <option value="M">Level M</option>
+        <option value="M" selected>Level M</option>
         <option value="Q">Level Q</option>
-        <option value="H" selected>Level H</option>
+        <option value="H">Level H</option>
       </select>
     </div>
 
@@ -257,7 +257,7 @@
         qrPreviewElement.innerHTML = '<p>Generating QR code...</p>';
         
         // Call the endpoint
-        fetch('http://USMTNCSSZZZAP01:3000/generateQR', {
+        fetch('http://localhost:3000/generateQR', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -279,9 +279,12 @@
           qrCodeUrls.png = data.files.png;
           qrCodeUrls.eps = data.files.eps;
           
+          // Add a timestamp to prevent browser caching
+          const timestamp = new Date().getTime();
+          
           // Display the QR code (using PNG format for preview)
           const img = document.createElement('img');
-          img.src = qrCodeUrls.png;
+          img.src = `${qrCodeUrls.png}?t=${timestamp}`;
           img.alt = 'Generated QR Code';
           img.style.maxWidth = '100%';
           img.style.height = 'auto';
@@ -311,9 +314,13 @@
           const url = qrCodeUrls[format];
           
           if (url) {
+            // Add timestamp for cache busting on downloads too
+            const timestamp = new Date().getTime();
+            const downloadUrl = `${url}?t=${timestamp}`;
+            
             // Create temporary anchor element for download
             const downloadLink = document.createElement('a');
-            downloadLink.href = url;
+            downloadLink.href = downloadUrl;
             downloadLink.download = `qr_code.${format}`;
             document.body.appendChild(downloadLink);
             downloadLink.click();
