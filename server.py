@@ -143,26 +143,26 @@ async def generate_qr(request: Request):
     qr.add_data(url)
     qr.make(fit=True)
     
-    # 1. Generate 500x500 px SVG:
-    #   - QR code drawn in a 360x360 area with 70px padding on all sides
+    # 1. Generate 2000x2000 px SVG:
+    #   - QR code drawn in a 1568x1568 area with 216px padding on all sides
     matrix = qr.get_matrix()  # Get the QR matrix (list of lists of booleans)
     n = len(matrix)
-    module_size = 360 / n  # Each module's size to fill 360px exactly
+    module_size = 1568 / n  # Each module's size to fill 360px exactly
     svg_elements = []
-    # White background for the full 500x500 canvas
-    svg_elements.append('<rect x="0" y="0" width="500" height="500" fill="white" />')
+    # White background for the full 2000x2000 canvas
+    svg_elements.append('<rect x="0" y="0" width="2000" height="2000" fill="white" />')
     # Draw each black module as a rectangle
     for i, row in enumerate(matrix):
         for j, cell in enumerate(row):
             if cell:
-                # Compute the top-left coordinate of the module, offset by 70px
-                x = 70 + j * module_size
-                y = 70 + i * module_size
+                # Compute the top-left coordinate of the module, offset by 216px
+                x = 216 + j * module_size
+                y = 216 + i * module_size
                 svg_elements.append(
                     f'<rect x="{x:.2f}" y="{y:.2f}" width="{module_size:.2f}" height="{module_size:.2f}" fill="black" />'
                 )
     svg_content = (
-        f'<svg xmlns="http://www.w3.org/2000/svg" width="500" height="500" viewBox="0 0 500 500">'
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="2000" height="2000" viewBox="0 0 2000 2000">'
         + "".join(svg_elements)
         + "</svg>"
     )
@@ -171,11 +171,11 @@ async def generate_qr(request: Request):
         svg_file.write(svg_content)
     
     # 2. Generate 2000x2000 px PNG:
-    #   - QR code image generated at 1440x1440 px, centered with 280px padding
+    #   - QR code image generated at 1568x1568 px, centered with 216px padding
     qr_png_img = qr.make_image(fill_color="black", back_color="white")
-    qr_png = qr_png_img.resize((1440, 1440), Image.NEAREST)  # Resize to 1440x1440 for quality
+    qr_png = qr_png_img.resize((1568, 1568), Image.NEAREST)  # Resize to 1568x1568 for quality
     canvas_png = Image.new("RGB", (2000, 2000), "white")
-    canvas_png.paste(qr_png, (280, 280))
+    canvas_png.paste(qr_png, (216, 216))
     png_path = os.path.join(QR_CODE_DIR, f"{filename_prefix}.png")
     canvas_png.save(png_path, "PNG")
     
