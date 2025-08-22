@@ -506,7 +506,7 @@
         // Clear button with more robust styling
         const clearButton = document.createElement('button');
         clearButton.className = 'clear-file';
-        clearButton.textContent = '✕';  // Plain text instead of HTML for better compatibility
+        clearButton.innerHTML = '&times;';  // Use HTML entity for "x"
         clearButton.setAttribute('type', 'button'); // Explicitly set button type
         clearButton.setAttribute('aria-label', 'Remove file');
         clearButton.addEventListener('click', clearSelectedFile);
