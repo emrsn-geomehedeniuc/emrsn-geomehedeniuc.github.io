@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, UploadFile, File, Form
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -6,6 +6,12 @@ import qrcode
 from PIL import Image
 import os
 import re
+import io
+import zipfile
+import pandas as pd
+import tempfile
+from datetime import datetime
+from typing import List, Optional
 from urllib.parse import urlparse
 
 app = FastAPI()
@@ -27,8 +33,12 @@ os.makedirs(QR_CODE_DIR, exist_ok=True)
 # Assuming it's in the same directory as the server.py file
 STATIC_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# Mount static files directory (for CSS, JS, etc. if needed)
-app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+# Create a separate path for static files (images, CSS, JS)
+STATIC_FILES_DIR = os.path.join(STATIC_DIR, "static")
+os.makedirs(STATIC_FILES_DIR, exist_ok=True)  # Create the directory if it doesn't exist
+
+# Mount static files directory for serving images, CSS, JS, etc.
+app.mount("/static", StaticFiles(directory=STATIC_FILES_DIR), name="static")
 
 @app.get("/", response_class=HTMLResponse)
 def home_redirect():
@@ -198,6 +208,191 @@ async def generate_qr(request: Request):
             "eps": f"{base_url}/download/{filename_prefix}.eps"
         }
     }
+
+@app.post("/generateQRFromExcel")
+async def generate_qr_from_excel(
+    file: UploadFile = File(...),
+    errorCorrectionLevel: str = Form("H")
+):
+    """Generate QR codes from URLs in an Excel file."""
+    # Validate file extension
+    if not file.filename.endswith(('.xlsx', '.xls')):
+        raise HTTPException(status_code=400, detail="File must be an Excel file (.xlsx or .xls)")
+    
+    try:
+        # Read Excel file
+        contents = await file.read()
+        df = pd.read_excel(io.BytesIO(contents))
+        
+        # Check if file has data
+        if df.empty:
+            raise HTTPException(status_code=400, detail="Excel file is empty")
+        
+        # Find URL column - case insensitive search for "url"
+        url_column = None
+        for col in df.columns:
+            if 'url' in col.lower():
+                url_column = col
+                break
+        
+        if not url_column:
+            raise HTTPException(status_code=400, detail="No column containing 'url' found in Excel file")
+        
+        # Find filename column - case insensitive search for "filename"
+        filename_column = None
+        for col in df.columns:
+            if 'filename' in col.lower() or 'file name' in col.lower() or 'file_name' in col.lower():
+                filename_column = col
+                break
+        
+        # Create list of links and filenames
+        links_data = []
+        for index, row in df.iterrows():
+            url = row[url_column]
+            # Skip empty URLs
+            if pd.isna(url) or not url:
+                continue
+                
+            # Get filename if available
+            filename = None
+            if filename_column and not pd.isna(row[filename_column]) and row[filename_column]:
+                # Clean filename - remove invalid characters
+                filename = re.sub(r'[\\/*?:"<>|]', "", str(row[filename_column]))
+            
+            links_data.append({"url": url, "filename": filename})
+        
+        if not links_data:
+            raise HTTPException(status_code=400, detail="No valid URLs found in Excel file")
+        
+        # Map error correction level
+        error_correction_mapping = {
+            "L": qrcode.constants.ERROR_CORRECT_L,
+            "M": qrcode.constants.ERROR_CORRECT_M,
+            "Q": qrcode.constants.ERROR_CORRECT_Q,
+            "H": qrcode.constants.ERROR_CORRECT_H
+        }
+        
+        # Use provided error correction level or default to H
+        error_correction = error_correction_mapping.get(
+            errorCorrectionLevel, 
+            qrcode.constants.ERROR_CORRECT_H
+        )
+        
+        # Create a temporary directory for SVG files
+        temp_dir = tempfile.mkdtemp(prefix="qr_codes_")
+        
+        # Create a timestamp for unique zip filename
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        zip_filename = f"qr_codes_{timestamp}.zip"
+        zip_path = os.path.join(QR_CODE_DIR, zip_filename)
+        
+        # Generate SVG QR codes and add to zip
+        with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+            for i, link_data in enumerate(links_data):
+                url = link_data["url"]
+                custom_filename = link_data["filename"]
+                
+                # Generate QR code
+                qr = qrcode.QRCode(
+                    error_correction=error_correction,
+                    box_size=10,
+                    border=0
+                )
+                qr.add_data(url)
+                qr.make(fit=True)
+                
+                # Determine filename
+                if custom_filename:
+                    # Use the custom filename from Excel
+                    svg_filename = f"{custom_filename}.svg"
+                else:
+                    # Use the old naming convention
+                    try:
+                        # Parse URL to extract parts
+                        parsed_url = urlparse(url)
+                        
+                        # Pattern 1: https://www.ridgid.com/qr/fxp490
+                        qr_pattern = re.compile(r"www\.([^.]+)\.com/qr/([^/]+)")
+                        match = qr_pattern.search(parsed_url.netloc + parsed_url.path)
+                        
+                        if match:
+                            brand = match.group(1).lower()
+                            qr_code = match.group(2).lower()
+                            svg_filename = f"{brand}-qr-{qr_code}.svg"
+                        else:
+                            # Alternative extraction
+                            hostname = parsed_url.netloc
+                            if hostname.startswith('www.'):
+                                hostname = hostname[4:]
+                            if '.' in hostname:
+                                brand = hostname.split('.')[0]
+                            else:
+                                brand = "generic"
+                                
+                            # Use part of path as qr_code if available
+                            path_parts = [p for p in parsed_url.path.split('/') if p]
+                            if path_parts:
+                                qr_code = path_parts[-1]
+                            else:
+                                qr_code = f"code{i+1}"
+                                
+                            svg_filename = f"{brand}-qr-{qr_code}.svg"
+                    except:
+                        # Fallback naming
+                        svg_filename = f"qr_code_{i+1}.svg"
+                
+                # Create SVG QR code - Same SVG generation code as in generateQR
+                matrix = qr.get_matrix()
+                n = len(matrix)
+                module_size = 1568 / n
+                svg_elements = []
+                
+                # White background
+                svg_elements.append('<rect x="0" y="0" width="2000" height="2000" fill="white" />')
+                
+                # Draw each black module
+                for i, row in enumerate(matrix):
+                    for j, cell in enumerate(row):
+                        if cell:
+                            x = 216 + j * module_size
+                            y = 216 + i * module_size
+                            svg_elements.append(
+                                f'<rect x="{x:.2f}" y="{y:.2f}" width="{module_size:.2f}" height="{module_size:.2f}" fill="black" />'
+                            )
+                
+                svg_content = (
+                    f'<svg xmlns="http://www.w3.org/2000/svg" width="2000" height="2000" viewBox="0 0 2000 2000">'
+                    + "".join(svg_elements)
+                    + "</svg>"
+                )
+                
+                # Write to temp file and add to zip
+                temp_svg_path = os.path.join(temp_dir, svg_filename)
+                with open(temp_svg_path, "w", encoding="utf-8") as svg_file:
+                    svg_file.write(svg_content)
+                
+                # Add to zip with just the filename (no path)
+                zipf.write(temp_svg_path, arcname=svg_filename)
+        
+        # Clean up temporary directory
+        for file in os.listdir(temp_dir):
+            os.remove(os.path.join(temp_dir, file))
+        os.rmdir(temp_dir)
+        
+        # Generate download URL
+        base_url = "http://localhost:3000"  # Fallback if request base_url not available
+        
+        return {
+            "message": f"Successfully generated {len(links_data)} QR codes",
+            "files": {
+                "zip": f"{base_url}/download/{zip_filename}"
+            }
+        }
+        
+    except Exception as e:
+        # Log and return error
+        print(f"Error processing Excel file: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error processing Excel file: {str(e)}")
 
 @app.get("/download/{filename}")
 def download_file(filename: str):

@@ -2,6 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <!-- Add this CSP meta tag to upgrade insecure requests -->
+  <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
   <title>Protools QR Labels</title>
   <style>
     * {
@@ -51,6 +53,120 @@
       border: 1px solid #ddd;
       border-radius: 4px;
       font-size: 1rem;
+    }
+
+    /* OR divider */
+    .divider {
+      display: flex;
+      align-items: center;
+      margin: 20px 0;
+      color: #777;
+      font-size: 0.9rem;
+    }
+
+    .divider::before,
+    .divider::after {
+      content: "";
+      flex: 1;
+      border-bottom: 1px solid #ddd;
+    }
+
+    .divider::before {
+      margin-right: 10px;
+    }
+
+    .divider::after {
+      margin-left: 10px;
+    }
+
+    /* File upload area */
+    .file-upload {
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      padding: 10px;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: flex-start; /* Changed: left-align content */
+      position: relative;
+      min-height: 50px;
+      cursor: pointer;
+      background-color: white;
+    }
+
+    .file-upload.drag-over {
+      border-color: #d32f2f;
+      background-color: rgba(211, 47, 47, 0.05);
+    }
+
+    .file-upload-text {
+      display: flex;
+      align-items: center;
+      color: #555;
+      text-align: left; /* Added: ensure text is left-aligned */
+    }
+
+    .file-upload-text .file-icon {
+      margin-right: 10px; /* Increased margin for better spacing */
+      width: 24px; /* Set width for Excel icon */
+      height: 24px; /* Set height for Excel icon */
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .file-upload-text .choose-file {
+      color: #006EFF; /* Changed: updated color to specified blue */
+      font-weight: 500;
+      cursor: pointer;
+      margin-left: 5px;
+    }
+
+    /* Selected file display */
+    .selected-file {
+      display: flex;
+      align-items: center;
+      width: 100%;
+      position: relative; /* Add position relative for absolute positioning of X button */
+      padding-right: 30px; /* Make space for the X button */
+    }
+
+    .selected-file .file-name {
+      display: flex;
+      align-items: center;
+      font-size: 0.9rem;
+      color: #006EFF;
+      overflow: hidden; /* Prevent overflow */
+      text-overflow: ellipsis; /* Add ellipsis for long filenames */
+      white-space: nowrap; /* Keep filename on one line */
+      width: 100%; /* Take up all available space */
+    }
+
+    .selected-file .file-icon {
+      margin-right: 10px;
+      width: 24px;
+      height: 24px;
+    }
+
+    .selected-file .clear-file {
+      position: absolute;
+      right: 0;
+      top: 0;
+      bottom: 0;
+      width: 24px;
+      background: none;
+      border: none;
+      color: #777;
+      font-size: 1.2rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+    }
+
+    .selected-file .clear-file:hover {
+      color: #d32f2f;
     }
 
     /* Preview section */
@@ -114,7 +230,7 @@
       background-color: #b71c1c;
     }
 
-    /* Download section and buttons */
+    /* Download section */
     .download-section {
       margin-bottom: 20px;
     }
@@ -125,6 +241,7 @@
       font-weight: 500;
     }
 
+    /* Download buttons */
     .download-buttons {
       display: flex;
       justify-content: space-between;
@@ -155,6 +272,16 @@
       opacity: 0.5;
       cursor: not-allowed;
     }
+
+    /* Hidden file input */
+    #file-input {
+      display: none;
+    }
+
+    /* File upload container */
+    .file-upload-content {
+      width: 100%;
+    }
   </style>
 </head>
 <body>
@@ -166,6 +293,23 @@
     <div class="input-group">
       <label for="qr-link">Link</label>
       <input type="text" id="qr-link" placeholder="Insert link" />
+    </div>
+    
+    <!-- OR Divider -->
+    <div class="divider">OR</div>
+    
+    <!-- File Upload Area -->
+    <div class="file-upload" id="file-upload-area">
+      <input type="file" id="file-input" accept=".xlsx,.xls" />
+      <div class="file-upload-content">
+        <div class="file-upload-text">
+          <span class="file-icon">
+            <img src="/static/excel-icon.png" width="24" height="24">
+          </span>
+          <span>Drag&Drop file here or</span>
+          <span class="choose-file" id="choose-file-btn">Choose file</span>
+        </div>
+      </div>
     </div>
     
     <!-- Preview Section -->
@@ -212,6 +356,12 @@
       const errorCorrectionLevel = document.getElementById('error-correction-level');
       const downloadButtons = document.querySelectorAll('.download-buttons button');
       
+      // File upload elements
+      const fileUploadArea = document.getElementById('file-upload-area');
+      const fileInput = document.getElementById('file-input');
+      const chooseFileBtn = document.getElementById('choose-file-btn');
+      let selectedFile = null;
+      
       // Store the initial message for preview area
       const initialPreviewContent = qrPreviewElement.innerHTML;
       let generatedQR = false;
@@ -255,11 +405,162 @@
         };
       });
       
+      // File upload functionality
+      // 1. Handle click on "Choose file" button
+      chooseFileBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        fileInput.click();
+      });
+      
+      // 2. Handle file selection via input
+      fileInput.addEventListener('change', function() {
+        handleFileSelection(this.files);
+      });
+      
+      // 3. Handle drag and drop events
+      ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        fileUploadArea.addEventListener(eventName, preventDefaults, false);
+      });
+      
+      function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      
+      ['dragenter', 'dragover'].forEach(eventName => {
+        fileUploadArea.addEventListener(eventName, highlight, false);
+      });
+      
+      ['dragleave', 'drop'].forEach(eventName => {
+        fileUploadArea.addEventListener(eventName, unhighlight, false);
+      });
+      
+      function highlight() {
+        fileUploadArea.classList.add('drag-over');
+      }
+      
+      function unhighlight() {
+        fileUploadArea.classList.remove('drag-over');
+      }
+      
+      fileUploadArea.addEventListener('drop', function(e) {
+        const dt = e.dataTransfer;
+        const files = dt.files;
+        handleFileSelection(files);
+      });
+      
+      // 4. Process selected file
+      function handleFileSelection(files) {
+        if (files.length > 0) {
+          const file = files[0];
+          
+          // Check if file is an Excel file
+          if (file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' || 
+              file.type === 'application/vnd.ms-excel' || 
+              file.name.endsWith('.xlsx') || 
+              file.name.endsWith('.xls')) {
+            
+            selectedFile = file;
+            displaySelectedFile(file);
+            
+            // Clear the URL input as we're using a file instead
+            linkInput.value = '';
+          } else {
+            alert('Please select an Excel file (.xlsx or .xls)');
+          }
+        }
+      }
+      
+      // 5. Display selected file in the upload area
+      function displaySelectedFile(file) {
+        // Clear existing content
+        fileUploadArea.querySelector('.file-upload-content').innerHTML = '';
+        
+        // Create selected file display with improved structure
+        const selectedFileElement = document.createElement('div');
+        selectedFileElement.className = 'selected-file';
+        selectedFileElement.style.display = 'flex';
+        selectedFileElement.style.width = '100%';
+        selectedFileElement.style.position = 'relative';
+        
+        const fileName = document.createElement('div');
+        fileName.className = 'file-name';
+        
+        // Excel icon
+        const fileIcon = document.createElement('span');
+        fileIcon.className = 'file-icon';
+        fileIcon.innerHTML = '<img src="/static/excel-icon.png" width="24" height="24">';
+        
+        // File name text
+        const fileNameText = document.createElement('span');
+        fileNameText.textContent = file.name;
+        
+        // Append icon and text to file name div
+        fileName.appendChild(fileIcon);
+        fileName.appendChild(fileNameText);
+        
+        // Clear button with inline styles to ensure correct positioning
+        const clearButton = document.createElement('button');
+        clearButton.className = 'clear-file';
+        clearButton.innerHTML = '✕';
+        clearButton.style.position = 'absolute';
+        clearButton.style.right = '0';
+        clearButton.style.top = '0';
+        clearButton.style.bottom = '0';
+        clearButton.style.display = 'flex';
+        clearButton.style.alignItems = 'center';
+        clearButton.style.justifyContent = 'center';
+        clearButton.addEventListener('click', clearSelectedFile);
+        
+        // Append file name and clear button to selected file display
+        selectedFileElement.appendChild(fileName);
+        selectedFileElement.appendChild(clearButton);
+        
+        // Add to upload area
+        fileUploadArea.querySelector('.file-upload-content').appendChild(selectedFileElement);
+      }
+      
+      // 6. Clear selected file
+      function clearSelectedFile(e) {
+        if (e) {
+          e.stopPropagation();
+        }
+        
+        selectedFile = null;
+        fileInput.value = '';
+        
+        // Reset the upload area to initial state
+        fileUploadArea.querySelector('.file-upload-content').innerHTML = `
+          <div class="file-upload-text">
+            <span class="file-icon">
+              <img src="/static/excel-icon.png" width="24" height="24">
+            </span>
+            <span>Drag&Drop file here or</span>
+            <span class="choose-file" id="choose-file-btn">Choose file</span>
+          </div>
+        `;
+        
+        // Reattach event listener to the new buttondsad
+        document.getElementById('choose-file-btn').addEventListener('click', function(e) {
+          e.stopPropagation();
+          fileInput.click();
+        });
+      }
+      
+      // Make the whole upload area clickable
+      fileUploadArea.addEventListener('click', function() {
+        if (!selectedFile) {
+          fileInput.click();
+        }
+      });
+      
       // Generate QR codes using the specified endpoint
       generateBtn.addEventListener('click', function() {
+        // Check if we have a URL or file to process
         const link = linkInput.value.trim();
-        if (!link) {
-          alert('Please enter a valid link');
+        
+        if (!link && !selectedFile) {
+          alert('Please enter a link or select an Excel file');
           return;
         }
         
@@ -269,51 +570,132 @@
         // Show loading indication
         qrPreviewElement.innerHTML = '<p>Generating QR code...</p>';
         
-        // Call the endpoint
-        fetch('http://USMTNCSSZZZAP01:3000/generateQR', {
-        // fetch('http://localhost:3000/generateQR', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ 
-            url: link,
-            errorCorrectionLevel: errorCorrectionLevel.value
+        if (link) {
+          // Process link - existing functionality
+          // fetch('http://localhost:3000/generateQR', {
+          fetch('http://USMTNCSSZZZAP01:3000/generateQR', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ 
+              url: link,
+              errorCorrectionLevel: errorCorrectionLevel.value
+            })
           })
-        })
-        .then(response => {
-          if (!response.ok) {
-            throw new Error('Network response was not ok');
-          }
-          return response.json();
-        })
-        .then(data => {
-          // Store the URLs for download buttons
-          qrCodeUrls.svg = data.files.svg;
-          qrCodeUrls.png = data.files.png;
-          qrCodeUrls.eps = data.files.eps;
+          .then(response => {
+            if (!response.ok) {
+              throw new Error('Network response was not ok');
+            }
+            return response.json();
+          })
+          .then(data => {
+            // Store the URLs for download buttons
+            qrCodeUrls.svg = data.files.svg;
+            qrCodeUrls.png = data.files.png;
+            qrCodeUrls.eps = data.files.eps;
+            
+            // Add a timestamp to prevent browser caching
+            const timestamp = new Date().getTime();
+            
+            // Display the QR code (using PNG format for preview)
+            const img = document.createElement('img');
+            img.src = `${qrCodeUrls.png}?t=${timestamp}`;
+            img.alt = 'Generated QR Code';
+            img.style.maxWidth = '100%';
+            img.style.height = 'auto';
+            
+            // Clear loading indication and append the image
+            qrPreviewElement.innerHTML = '';
+            qrPreviewElement.appendChild(img);
+            
+            generatedQR = true;
+            enableDownloadButtons();
+          })
+          .catch(error => {
+            console.error('Error:', error);
+            qrPreviewElement.innerHTML = '<p>Error generating QR code. Please try again.</p>';
+          });
+        } 
+        else if (selectedFile) {
+          // Process Excel file
+          // Create a FormData object to send the file
+          const formData = new FormData();
+          formData.append('file', selectedFile);
+          formData.append('errorCorrectionLevel', errorCorrectionLevel.value);
           
-          // Add a timestamp to prevent browser caching
-          const timestamp = new Date().getTime();
-          
-          // Display the QR code (using PNG format for preview)
-          const img = document.createElement('img');
-          img.src = `${qrCodeUrls.png}?t=${timestamp}`;
-          img.alt = 'Generated QR Code';
-          img.style.maxWidth = '100%';
-          img.style.height = 'auto';
-          
-          // Clear loading indication and append the image
-          qrPreviewElement.innerHTML = '';
-          qrPreviewElement.appendChild(img);
-          
-          generatedQR = true;
-          enableDownloadButtons();
-        })
-        .catch(error => {
-          console.error('Error:', error);
-          qrPreviewElement.innerHTML = '<p>Error generating QR code. Please try again.</p>';
-        });
+          // Send the file to the server
+          // fetch('http://localhost:3000/generateQRFromExcel', {
+          fetch('http://USMTNCSSZZZAP01:3000/generateQRFromExcel', {
+            method: 'POST',
+            body: formData
+          })
+          .then(response => {
+            if (!response.ok) {
+              throw new Error('Network response was not ok');
+            }
+            return response.json();
+          })
+          .then(data => {
+            // Handle the response for Excel processing
+            if (data.files) {
+              // Check if we received a ZIP file (from Excel processing)
+              if (data.files.zip) {
+                // Store the zip URL 
+                const zipUrl = data.files.zip;
+                
+                // Add timestamp for cache busting
+                const timestamp = new Date().getTime();
+                const downloadUrl = `${zipUrl}?t=${timestamp}`;
+                
+                // Show success message in preview area
+                qrPreviewElement.innerHTML = `<p>Successfully generated QR codes! <br>Downloading ZIP file...</p>`;
+                
+                // Automatically start download
+                setTimeout(() => {
+                  const downloadLink = document.createElement('a');
+                  downloadLink.href = downloadUrl;
+                  downloadLink.download = 'qr_codes.zip';
+                  document.body.appendChild(downloadLink);
+                  downloadLink.click();
+                  document.body.removeChild(downloadLink);
+                }, 500); // Small delay to ensure the user sees the success message
+                
+                // No need to enable download buttons for individual files
+                // since we're providing a ZIP with all QR codes
+              } else {
+                // Original code for single QR code response
+                // Store the URLs for download buttons
+                qrCodeUrls.svg = data.files.svg;
+                qrCodeUrls.png = data.files.png;
+                qrCodeUrls.eps = data.files.eps;
+                
+                // Add a timestamp to prevent browser caching
+                const timestamp = new Date().getTime();
+                
+                // Display the QR code (using PNG format for preview)
+                const img = document.createElement('img');
+                img.src = `${qrCodeUrls.png}?t=${timestamp}`;
+                img.alt = 'Generated QR Code';
+                img.style.maxWidth = '100%';
+                img.style.height = 'auto';
+                
+                // Clear loading indication and append the image
+                qrPreviewElement.innerHTML = '';
+                qrPreviewElement.appendChild(img);
+                
+                generatedQR = true;
+                enableDownloadButtons();
+              }
+            } else {
+              qrPreviewElement.innerHTML = '<p>No QR code data found in the Excel file.</p>';
+            }
+          })
+          .catch(error => {
+            console.error('Error:', error);
+            qrPreviewElement.innerHTML = '<p>Error processing Excel file. Please check the file format and try again.</p>';
+          });
+        }
       });
       
       // Handle download button clicks
