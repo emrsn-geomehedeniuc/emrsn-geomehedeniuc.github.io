@@ -124,9 +124,9 @@
     .selected-file {
       display: flex;
       align-items: center;
+      justify-content: space-between;
       width: 100%;
-      position: relative; /* Add position relative for absolute positioning of X button */
-      padding-right: 30px; /* Make space for the X button */
+      position: relative;
     }
 
     .selected-file .file-name {
@@ -137,7 +137,7 @@
       overflow: hidden; /* Prevent overflow */
       text-overflow: ellipsis; /* Add ellipsis for long filenames */
       white-space: nowrap; /* Keep filename on one line */
-      width: 100%; /* Take up all available space */
+      width: calc(100% - 30px); /* Leave space for X button */
     }
 
     .selected-file .file-icon {
@@ -147,20 +147,26 @@
     }
 
     .selected-file .clear-file {
+      width: 24px;
+      height: 24px;
+      line-height: 24px;
+      text-align: center;
       position: absolute;
       right: 0;
-      top: 0;
-      bottom: 0;
-      width: 24px;
+      top: 50%;
+      transform: translateY(-50%);
       background: none;
       border: none;
       color: #777;
-      font-size: 1.2rem;
+      font-size: 18px;
+      font-weight: bold;
       cursor: pointer;
+      padding: 0;
+      margin: 0;
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 0;
+      z-index: 10;
     }
 
     .selected-file .clear-file:hover {
@@ -497,17 +503,12 @@
         fileName.appendChild(fileIcon);
         fileName.appendChild(fileNameText);
         
-        // Clear button with inline styles to ensure correct positioning
+        // Clear button with more robust styling
         const clearButton = document.createElement('button');
         clearButton.className = 'clear-file';
-        clearButton.innerHTML = '✕';
-        clearButton.style.position = 'absolute';
-        clearButton.style.right = '0';
-        clearButton.style.top = '0';
-        clearButton.style.bottom = '0';
-        clearButton.style.display = 'flex';
-        clearButton.style.alignItems = 'center';
-        clearButton.style.justifyContent = 'center';
+        clearButton.textContent = '✕';  // Plain text instead of HTML for better compatibility
+        clearButton.setAttribute('type', 'button'); // Explicitly set button type
+        clearButton.setAttribute('aria-label', 'Remove file');
         clearButton.addEventListener('click', clearSelectedFile);
         
         // Append file name and clear button to selected file display
