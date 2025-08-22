@@ -211,6 +211,7 @@ async def generate_qr(request: Request):
 
 @app.post("/generateQRFromExcel")
 async def generate_qr_from_excel(
+    request: Request,  # Add request parameter to access base URL
     file: UploadFile = File(...),
     errorCorrectionLevel: str = Form("H")
 ):
@@ -379,8 +380,8 @@ async def generate_qr_from_excel(
             os.remove(os.path.join(temp_dir, file))
         os.rmdir(temp_dir)
         
-        # Generate download URL
-        base_url = "http://localhost:3000"  # Fallback if request base_url not available
+        # Generate download URL - get base URL from the request instead of using localhost
+        base_url = str(request.base_url).rstrip("/")
         
         return {
             "message": f"Successfully generated {len(links_data)} QR codes",
